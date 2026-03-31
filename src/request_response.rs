@@ -9,17 +9,15 @@ use uuid::Uuid;
 
 /// Service for request-response pattern using PostgreSQL.
 /// Uses queue for requests and LISTEN/NOTIFY for responses.
+#[derive(Clone)]
 pub struct RequestResponseService {
     pool: PgPool,
     queue: QueueRepository,
 }
 
 impl RequestResponseService {
-    pub fn new(pool: PgPool) -> Self {
-        Self {
-            queue: QueueRepository::new(pool.clone()),
-            pool,
-        }
+    pub fn new(pool: PgPool, queue: QueueRepository) -> Self {
+        Self { pool, queue }
     }
 
     /// Push a request to a queue and wait for a response.
@@ -94,7 +92,9 @@ impl RequestResponseService {
 
     /// Clean up old responses (housekeeping)
     pub async fn cleanup_old_responses(&self, older_than: Duration) -> Result<u64> {
-        let cutoff = chrono::Utc::now() - chrono::Duration::from_std(older_than).unwrap();
+        let cutoff = chrono::Utc::now()
+            - chrono::Duration::from_std(older_than)
+                .map_err(|e| PgQueueError::Listener(e.to_string()))?;
 
         let result = sqlx::query("DELETE FROM request_responses WHERE created_at < $1")
             .bind(cutoff)

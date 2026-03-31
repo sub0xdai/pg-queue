@@ -33,23 +33,8 @@ impl CacheRepository {
 
     /// Set a cached value with TTL in seconds
     pub async fn set<T: Serialize>(&self, key: &str, value: &T, ttl_secs: u64) -> Result<()> {
-        let json = serde_json::to_value(value)?;
         let expires_at = Utc::now() + Duration::seconds(ttl_secs as i64);
-
-        sqlx::query(
-            r#"
-            INSERT INTO cache_entries (key, value, expires_at)
-            VALUES ($1, $2, $3)
-            ON CONFLICT (key) DO UPDATE SET value = $2, expires_at = $3
-            "#,
-        )
-        .bind(key)
-        .bind(json)
-        .bind(expires_at)
-        .execute(&self.pool)
-        .await?;
-
-        Ok(())
+        self.set_with_expiry(key, value, expires_at).await
     }
 
     /// Set a cached value with explicit expiration time

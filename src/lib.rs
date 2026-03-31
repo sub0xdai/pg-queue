@@ -25,7 +25,7 @@
 //! let pool = sqlx::PgPool::connect("postgres://localhost/mydb").await.unwrap();
 //! let mgr = PgQueueManager::new(pool);
 //!
-//! let emails = QueueName::new("emails");
+//! let emails = QueueName::new("emails")?;
 //!
 //! // Push a job
 //! mgr.queue.push(&emails, &serde_json::json!({"to": "user@example.com"})).await?;
@@ -50,12 +50,13 @@ pub use cache::CacheRepository;
 pub use errors::{PgQueueError, Result};
 pub use listen::{ListenerService, Notification};
 pub use notify::NotifyService;
-pub use queue::{Job, QueueName, QueueRepository};
+pub use queue::{Job, JobStatus, QueueName, QueueRepository};
 pub use request_response::{RequestResponseService, RequestWrapper};
 
 pub use sqlx::PgPool;
 
 /// Main manager combining all PostgreSQL queue/pubsub/cache functionality
+#[derive(Clone)]
 pub struct PgQueueManager {
     pub queue: QueueRepository,
     pub notify: NotifyService,
@@ -67,11 +68,12 @@ pub struct PgQueueManager {
 impl PgQueueManager {
     /// Create a new PgQueueManager with the given connection pool
     pub fn new(pool: PgPool) -> Self {
+        let queue = QueueRepository::new(pool.clone());
         Self {
-            queue: QueueRepository::new(pool.clone()),
             notify: NotifyService::new(pool.clone()),
             cache: CacheRepository::new(pool.clone()),
-            request_response: RequestResponseService::new(pool.clone()),
+            request_response: RequestResponseService::new(pool.clone(), queue.clone()),
+            queue,
             pool,
         }
     }
@@ -87,19 +89,13 @@ impl PgQueueManager {
     }
 }
 
-impl Clone for PgQueueManager {
-    fn clone(&self) -> Self {
-        Self::new(self.pool.clone())
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     fn test_queue_name_construction() {
-        let q = QueueName::new("orders");
+        let q = QueueName::new("orders").unwrap();
         assert_eq!(q.table_name(), "queue_orders");
         assert_eq!(q.channel_name(), "queue_orders");
     }

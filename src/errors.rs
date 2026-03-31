@@ -17,11 +17,8 @@ pub enum PgQueueError {
     #[error("Timeout waiting for response")]
     Timeout,
 
-    #[error("Cache key not found: {0}")]
-    CacheKeyNotFound(String),
-
-    #[error("Cache entry expired")]
-    CacheExpired,
+    #[error("Invalid queue name: {0} (must be alphanumeric/underscore, non-empty)")]
+    InvalidQueueName(String),
 }
 
 pub type Result<T> = std::result::Result<T, PgQueueError>;
@@ -38,8 +35,8 @@ mod tests {
         let err = PgQueueError::Timeout;
         assert_eq!(err.to_string(), "Timeout waiting for response");
 
-        let err = PgQueueError::CacheKeyNotFound("my_key".to_string());
-        assert_eq!(err.to_string(), "Cache key not found: my_key");
+        let err = PgQueueError::InvalidQueueName("bad;name".to_string());
+        assert!(err.to_string().contains("bad;name"));
     }
 
     #[test]

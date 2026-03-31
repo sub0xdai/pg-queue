@@ -4,6 +4,7 @@ use sqlx::PgPool;
 /// Service for sending PostgreSQL NOTIFY messages.
 ///
 /// Note: PostgreSQL NOTIFY has an 8KB payload limit.
+#[derive(Clone)]
 pub struct NotifyService {
     pool: PgPool,
 }
