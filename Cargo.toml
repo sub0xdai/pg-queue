@@ -1,0 +1,21 @@
+[package]
+name = "pg-queue"
+version = "0.1.0"
+edition = "2021"
+description = "PostgreSQL job queue, pub/sub, and cache using SKIP LOCKED and LISTEN/NOTIFY"
+license = "MIT OR Apache-2.0"
+keywords = ["postgresql", "queue", "pubsub", "cache", "async"]
+categories = ["database", "asynchronous"]
+
+[dependencies]
+sqlx = { version = "0.8", features = ["postgres", "runtime-tokio", "json", "chrono", "uuid"] }
+tokio = { version = "1", features = ["rt", "time"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+uuid = { version = "1", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+thiserror = "1"
+tracing = "0.1"
+
+[dev-dependencies]
+tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
