@@ -4,6 +4,8 @@ version = "0.1.0"
 edition = "2021"
 description = "PostgreSQL job queue, pub/sub, and cache using SKIP LOCKED and LISTEN/NOTIFY"
 license = "MIT OR Apache-2.0"
+repository = "https://github.com/sub0xdai/pg-queue"
+readme = "README.md"
 keywords = ["postgresql", "queue", "pubsub", "cache", "async"]
 categories = ["database", "asynchronous"]
 

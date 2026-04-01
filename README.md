@@ -52,7 +52,7 @@ use pg_queue::{PgQueueManager, QueueName};
 
 let pool = sqlx::PgPool::connect("postgres://localhost/mydb").await?;
 let mgr = PgQueueManager::new(pool);
-let emails = QueueName::new("emails");
+let emails = QueueName::new("emails")?;
 
 // Producer: enqueue a job
 mgr.queue.push(&emails, &serde_json::json!({
@@ -104,7 +104,7 @@ let profile = mgr.cache.get_or_set("user:42:profile", 300, || async {
 ### Request-Response (RPC)
 
 ```rust
-let workers = QueueName::new("rpc_workers");
+let workers = QueueName::new("rpc_workers")?;
 
 // Caller: push request and block until response
 let result: MyResponse = mgr.request_response
