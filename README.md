@@ -1,12 +1,6 @@
 # pg-queue
 
-A PostgreSQL-based job queue, pub/sub, and cache library for Rust. One dependency instead of two — if you already run Postgres, you don't need Redis.
-
-## What it does
-
-Most applications that outgrow a single process need three things: a way to queue work for later, a way to broadcast events in real time, and a way to cache expensive lookups. The standard answer is to bolt Redis onto your stack. pg-queue provides all three using features already built into PostgreSQL — no additional infrastructure to deploy, monitor, or pay for.
-
-**In plain terms:** instead of adding a separate Redis server to handle background jobs and live updates, pg-queue lets your existing Postgres database do it. Fewer moving parts, fewer things to break at 3am.
+I was already running postgres and didnt want to add redis just for bg jobs.
 
 ## How it works
 
