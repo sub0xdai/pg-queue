@@ -129,4 +129,4 @@ The cache uses `UNLOGGED` tables — faster writes, but data is lost on crash. T
 
 ## License
 
-MIT OR Apache-2.0
+MIT 
