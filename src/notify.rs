@@ -1,25 +1,22 @@
 use crate::errors::Result;
-use sqlx::PgPool;
+use sqlx::Postgres;
 
-/// Service for sending PostgreSQL NOTIFY messages.
-///
-/// Note: PostgreSQL NOTIFY has an 8KB payload limit.
-#[derive(Clone)]
-pub struct NotifyService {
-    pool: PgPool,
-}
+#[derive(Clone, Copy, Default)]
+pub struct NotifyService;
 
 impl NotifyService {
-    pub fn new(pool: PgPool) -> Self {
-        Self { pool }
+    pub fn new() -> Self {
+        Self
     }
 
-    /// Send a notification to a channel
-    pub async fn notify(&self, channel: &str, payload: &str) -> Result<()> {
+    pub async fn notify<'e, E>(&self, executor: E, channel: &str, payload: &str) -> Result<()>
+    where
+        E: sqlx::Executor<'e, Database = Postgres>,
+    {
         sqlx::query("SELECT pg_notify($1, $2)")
             .bind(channel)
             .bind(payload)
-            .execute(&self.pool)
+            .execute(executor)
             .await?;
 
         Ok(())

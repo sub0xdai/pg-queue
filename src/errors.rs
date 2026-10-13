@@ -19,6 +19,24 @@ pub enum PgQueueError {
 
     #[error("Invalid queue name: {0} (must be alphanumeric/underscore, non-empty)")]
     InvalidQueueName(String),
+
+    #[error("Queue name is {len} characters, maximum is {max}")]
+    QueueNameTooLong { len: usize, max: usize },
+
+    #[error("max_attempts must be between 1 and {max}, got {value}")]
+    InvalidMaxAttempts { value: u32, max: u32 },
+
+    #[error("exponential backoff factor must be at least 1, got {0}")]
+    InvalidBackoffFactor(u32),
+
+    #[error("{0} must be greater than zero")]
+    InvalidWorkerConfig(&'static str),
+
+    #[error("Job ended in unexpected status: {0}")]
+    UnexpectedStatus(String),
+
+    #[error("Retry delay does not fit a chrono Duration")]
+    DurationOutOfRange,
 }
 
 pub type Result<T> = std::result::Result<T, PgQueueError>;

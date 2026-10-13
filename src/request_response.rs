@@ -7,8 +7,6 @@ use std::time::Duration;
 use tokio::time::timeout;
 use uuid::Uuid;
 
-/// Service for request-response pattern using PostgreSQL.
-/// Uses queue for requests and LISTEN/NOTIFY for responses.
 #[derive(Clone)]
 pub struct RequestResponseService {
     pool: PgPool,
@@ -20,10 +18,6 @@ impl RequestResponseService {
         Self { pool, queue }
     }
 
-    /// Push a request to a queue and wait for a response.
-    ///
-    /// Sets up a LISTEN channel before pushing to avoid race conditions.
-    /// The processor must call `store_response()` with the matching request_id.
     pub async fn push_and_wait<Req, Resp>(
         &self,
         queue: &QueueName,
@@ -37,20 +31,16 @@ impl RequestResponseService {
         let request_id = Uuid::new_v4();
         let channel = format!("response_{}", request_id);
 
-        // Set up listener before pushing to avoid race condition
         let mut listener = ListenerService::new(&self.pool).await?;
         listener.listen(&channel).await?;
 
-        // Wrap request with ID for correlation
         let wrapped = RequestWrapper {
             request_id,
             payload: serde_json::to_value(request)?,
         };
 
-        // Push to queue
-        self.queue.push(queue, &wrapped).await?;
+        self.queue.push(&self.pool, queue, &wrapped).await?;
 
-        // Wait for response notification
         match timeout(timeout_duration, listener.recv()).await {
             Ok(Ok(_notification)) => {
                 let response = self.fetch_response::<Resp>(&request_id).await?;
@@ -61,24 +51,30 @@ impl RequestResponseService {
         }
     }
 
-    /// Store a response for a request (called by the processor)
-    pub async fn store_response<T: Serialize>(
+    pub async fn store_response<'e, E, T>(
         &self,
+        executor: E,
         request_id: &Uuid,
         response: &T,
-    ) -> Result<()> {
+    ) -> Result<()>
+    where
+        E: sqlx::Executor<'e, Database = sqlx::Postgres>,
+        T: Serialize,
+    {
         let json = serde_json::to_value(response)?;
 
-        sqlx::query("INSERT INTO request_responses (request_id, response) VALUES ($1, $2)")
-            .bind(request_id)
-            .bind(json)
-            .execute(&self.pool)
-            .await?;
+        sqlx::query(
+            "INSERT INTO request_responses (request_id, response) VALUES ($1, $2)
+             ON CONFLICT (request_id) DO UPDATE SET response = EXCLUDED.response",
+        )
+        .bind(request_id)
+        .bind(json)
+        .execute(executor)
+        .await?;
 
         Ok(())
     }
 
-    /// Fetch a stored response
     async fn fetch_response<T: DeserializeOwned>(&self, request_id: &Uuid) -> Result<T> {
         let row: (serde_json::Value,) =
             sqlx::query_as("SELECT response FROM request_responses WHERE request_id = $1")
@@ -90,22 +86,19 @@ impl RequestResponseService {
         Ok(parsed)
     }
 
-    /// Clean up old responses (housekeeping)
     pub async fn cleanup_old_responses(&self, older_than: Duration) -> Result<u64> {
-        let cutoff = chrono::Utc::now()
-            - chrono::Duration::from_std(older_than)
-                .map_err(|e| PgQueueError::Listener(e.to_string()))?;
-
-        let result = sqlx::query("DELETE FROM request_responses WHERE created_at < $1")
-            .bind(cutoff)
-            .execute(&self.pool)
-            .await?;
+        let result = sqlx::query(
+            "DELETE FROM request_responses
+             WHERE created_at < NOW() - make_interval(secs => $1)",
+        )
+        .bind(older_than.as_secs_f64())
+        .execute(&self.pool)
+        .await?;
 
         Ok(result.rows_affected())
     }
 }
 
-/// Wrapper for requests to include correlation ID
 #[derive(Debug, Serialize, serde::Deserialize)]
 pub struct RequestWrapper {
     pub request_id: Uuid,
